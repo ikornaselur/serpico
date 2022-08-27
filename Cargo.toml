@@ -1,6 +1,11 @@
 [package]
 name = "serpico"
-version = "0.1.0"
+version = "0.0.1"
+authors = ["Axel <serpico@absalon.dev>"]
+description = "A CLI tool to run and deploy MicroPython code to Raspberry Pi Pico devices. \"SERial PICO\""
+repository = "https://github.com/ikornaselur/serpico"
+license = "MIT"
+readme = "README.md"
 edition = "2021"
 
 [dependencies]
