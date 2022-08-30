@@ -20,6 +20,7 @@ pub fn find_micropython_devices() -> Result<Vec<PathBuf>> {
         }
         if let SerialPortType::UsbPort(info) = p.port_type {
             if let Some(manufacturer) = info.manufacturer {
+                println!("{}: {}", p.port_name, manufacturer);
                 if manufacturer == "MicroPython" {
                     micropython_ports.push(PathBuf::from(p.port_name));
                 }
@@ -120,7 +121,12 @@ pub fn execute(device: PathBuf, script: String) -> Result<()> {
     let mut i: usize = 0;
     while i < script.len() {
         while window_remain == 0 || port.bytes_to_read()? > 0 {
-            port.read_exact(&mut byte_buf)?;
+            match port.read_exact(&mut byte_buf) {
+                Ok(_) => (),
+                Err(ref e) if e.kind() == ErrorKind::TimedOut => (),
+                Err(e) => bail!("Unable to read from port: {:?}", e),
+            }
+
             match byte_buf {
                 [1] => window_remain += window_size,
                 [4] => {
@@ -145,6 +151,10 @@ pub fn execute(device: PathBuf, script: String) -> Result<()> {
 
     read_until(&mut *port, "\x04".as_bytes(), false)?;
 
+    // stdout
+    read_until(&mut *port, "\x04".as_bytes(), true)?;
+
+    // stderr
     read_until(&mut *port, "\x04".as_bytes(), true)?;
 
     Ok(())
