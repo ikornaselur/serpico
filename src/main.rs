@@ -17,6 +17,11 @@ struct Args {
     /// a discovered MicroPython device, only if one is found.
     #[clap(short, long)]
     device: Option<PathBuf>,
+
+    /// Optional timeout in seconds to set while waiting to read a message. If no timeout set, then
+    /// serpico will wait forever for messages.
+    #[clap(short, long)]
+    timeout: Option<usize>,
 }
 
 fn main() -> Result<()> {
@@ -50,7 +55,7 @@ fn main() -> Result<()> {
         Err(e) => bail!("Couldn't read file {}: {}", args.file.display(), e),
     }
 
-    execute(device, content)?;
+    execute(device, content, args.timeout)?;
 
     Ok(())
 }

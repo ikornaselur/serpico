@@ -31,12 +31,16 @@ pub fn find_micropython_devices() -> Result<Vec<PathBuf>> {
     Ok(micropython_ports)
 }
 
-fn read_until(port: &mut dyn SerialPort, bytes: &[u8], echo: bool) -> Result<()> {
+fn read_until(
+    port: &mut dyn SerialPort,
+    bytes: &[u8],
+    echo: bool,
+    timeout: Option<usize>,
+) -> Result<()> {
     let mut deque: VecDeque<u8> = VecDeque::from(vec![0; bytes.len()]);
     let mut buf: Vec<u8> = vec![0; 1];
 
     let sleep_time = Duration::from_millis(10);
-    let timeout: usize = 10; // Timeout if nothing received for 10 seconds
     let mut timeout_count: usize = 0;
 
     loop {
@@ -55,9 +59,11 @@ fn read_until(port: &mut dyn SerialPort, bytes: &[u8], echo: bool) -> Result<()>
                 }
             }
             Err(ref e) if e.kind() == ErrorKind::TimedOut => {
-                timeout_count += 1;
-                if timeout_count > timeout * 100 {
-                    bail!("Timed out in read_until");
+                if let Some(timeout) = timeout {
+                    timeout_count += 1;
+                    if timeout_count > timeout * 100 {
+                        bail!("Timed out in read_until");
+                    }
                 }
                 sleep(sleep_time);
             }
@@ -68,7 +74,7 @@ fn read_until(port: &mut dyn SerialPort, bytes: &[u8], echo: bool) -> Result<()>
     Ok(())
 }
 
-pub fn execute(device: PathBuf, script: String) -> Result<()> {
+pub fn execute(device: PathBuf, script: String, timeout: Option<usize>) -> Result<()> {
     let device_path = match device.into_os_string().into_string() {
         Ok(path) => path,
         Err(e) => bail!("Unable to convert path to string: {:?}", e),
@@ -94,14 +100,24 @@ pub fn execute(device: PathBuf, script: String) -> Result<()> {
 
     port.write_all("\r\x01".as_bytes())?;
 
-    read_until(&mut *port, "raw REPL; CTRL-B to exit\r\n".as_bytes(), false)?;
+    read_until(
+        &mut *port,
+        "raw REPL; CTRL-B to exit\r\n".as_bytes(),
+        false,
+        timeout,
+    )?;
 
     port.write_all("\x04".as_bytes())?;
 
-    read_until(&mut *port, "soft reboot\r\n".as_bytes(), false)?;
-    read_until(&mut *port, "raw REPL; CTRL-B to exit\r\n".as_bytes(), false)?;
+    read_until(&mut *port, "soft reboot\r\n".as_bytes(), false, timeout)?;
+    read_until(
+        &mut *port,
+        "raw REPL; CTRL-B to exit\r\n".as_bytes(),
+        false,
+        timeout,
+    )?;
 
-    read_until(&mut *port, ">".as_bytes(), false)?;
+    read_until(&mut *port, ">".as_bytes(), false, timeout)?;
 
     port.write_all("\x05A\x01".as_bytes())?;
 
@@ -149,13 +165,13 @@ pub fn execute(device: PathBuf, script: String) -> Result<()> {
 
     port.write_all("\x04".as_bytes())?;
 
-    read_until(&mut *port, "\x04".as_bytes(), false)?;
+    read_until(&mut *port, "\x04".as_bytes(), false, timeout)?;
 
     // stdout
-    read_until(&mut *port, "\x04".as_bytes(), true)?;
+    read_until(&mut *port, "\x04".as_bytes(), true, timeout)?;
 
     // stderr
-    read_until(&mut *port, "\x04".as_bytes(), true)?;
+    read_until(&mut *port, "\x04".as_bytes(), true, timeout)?;
 
     Ok(())
 }
