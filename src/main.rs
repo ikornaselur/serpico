@@ -11,7 +11,7 @@ use serpico::serial::{execute, find_micropython_devices};
 struct Args {
     /// A file to execute on the MicroPython device
     #[clap(value_parser)]
-    file: PathBuf,
+    file: Option<PathBuf>,
 
     /// An optional device to connect to, if not provided, Serpico will try to discover and use a
     /// a discovered MicroPython device, only if one is found.
@@ -22,6 +22,14 @@ struct Args {
     /// serpico will wait forever for messages.
     #[clap(short, long)]
     timeout: Option<usize>,
+
+    /// Just print out the discovered MicroPython device and exit
+    #[clap(short, long)]
+    print_discovery: bool,
+
+    /// Verbose logging
+    #[clap(short, long)]
+    verbose: bool,
 }
 
 fn main() -> Result<()> {
@@ -35,7 +43,9 @@ fn main() -> Result<()> {
                 0 => bail!("No MicroPython devices founds"),
                 1 => {
                     let device = devices.pop().unwrap();
-                    println!("MicroPython device discovered at {}", device.display());
+                    if args.verbose {
+                        println!("MicroPython device discovered at {}", device.display());
+                    }
                     device
                 }
                 _ => bail!(
@@ -45,14 +55,24 @@ fn main() -> Result<()> {
         }
     };
 
-    let mut file = match File::open(&args.file.as_path()) {
+    if args.print_discovery {
+        println!("{}", device.to_str().unwrap());
+        return Ok(());
+    }
+
+    let file_arg = match args.file {
+        Some(file) => file,
+        None => bail!("No file specified"),
+    };
+
+    let mut file = match File::open(file_arg.as_path()) {
         Ok(file) => file,
-        Err(e) => bail!("Couldn't open file {}: {}", args.file.display(), e),
+        Err(e) => bail!("Couldn't open file {}: {}", file_arg.display(), e),
     };
     let mut content = String::new();
     match file.read_to_string(&mut content) {
         Ok(_) => {}
-        Err(e) => bail!("Couldn't read file {}: {}", args.file.display(), e),
+        Err(e) => bail!("Couldn't read file {}: {}", file_arg.display(), e),
     }
 
     execute(device, content, args.timeout)?;

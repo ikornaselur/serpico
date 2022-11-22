@@ -20,7 +20,6 @@ pub fn find_micropython_devices() -> Result<Vec<PathBuf>> {
         }
         if let SerialPortType::UsbPort(info) = p.port_type {
             if let Some(manufacturer) = info.manufacturer {
-                println!("{}: {}", p.port_name, manufacturer);
                 if manufacturer == "MicroPython" {
                     micropython_ports.push(PathBuf::from(p.port_name));
                 }
